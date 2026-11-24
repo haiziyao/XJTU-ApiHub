@@ -13,6 +13,7 @@
 | `db.md` | 数据库设计、ER 图、表字段说明 |
 | `db-doc/schema.sql` | 建表语句 |
 | `deploy.md` | 生产部署、GitHub Actions、域名与证书 |
+| `STATUS.md` | 当前项目状态、验证结果与待办 |
 | `xjtu-api/` | Rust 服务实现 |
 
 ## 技术栈
