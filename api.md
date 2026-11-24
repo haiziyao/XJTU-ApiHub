@@ -22,6 +22,7 @@
 | 注册前查询昵称 | `POST /api/auth/register/lookup` | `POST /api-test/auth/register/lookup` | 阿里云已部署 | 云端已验证 | 按学号查是否已有账号及昵称 |
 | 注册 | `POST /api/auth/register` | `POST /api-test/auth/register` | 阿里云已部署 | 真实账号已验证 | 2026-11-24 通过 Launcher 插件真实账号注册成功（`200`）；校方核验后创建账号，昵称不写默认真实姓名，不签发凭证 |
 | 登录 | `POST /api/auth/login` | `POST /api-test/auth/login` | 阿里云已部署 | 待真实账号测试 | 校方核验后签发凭证；账号必须已注册，未注册返回 `404` |
+| 首页信息 | `GET /api/index` | `GET /api-test/index` | 阿里云部署中 | 待验证 | 必须带 `Authorization: Bearer <accessToken>`；返回 `{"message":"从这里，启动你的XJTU人生"}` |
 
 ## 云端联调记录
 
@@ -37,6 +38,8 @@
 社区客户端接口按业务模块分组。每条原接口使用 `/api/{模块}/{接口}`，对应测试接口使用 `/api-test/{模块}/{接口}`。两者使用相同的 HTTP 方法、请求参数和业务处理，返回相同的 `code` 和 `data`。测试接口额外返回 `serve_raw` 和 `serve_data`。管理员接口另行定义。
 
 注册与登录是独立接口：注册只创建账号，不签发登录凭证；登录只接受已注册账号，核验后签发凭证。
+
+需要登录的接口使用 `Authorization: Bearer <accessToken>`；未携带或 token 无效返回 `401`。
 
 | 响应字段 | 返回范围 | 含义 |
 | --- | --- | --- |

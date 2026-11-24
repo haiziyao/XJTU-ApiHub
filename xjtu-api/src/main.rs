@@ -55,6 +55,8 @@ async fn main() -> anyhow::Result<()> {
         .route("/api-test/auth/register", post(auth::routes::register_test))
         .route("/api-test/auth/login", post(auth::routes::login_test))
         .route("/api/me", get(auth::routes::me))
+        .route("/api/index", get(auth::routes::index))
+        .route("/api-test/index", get(auth::routes::index_test))
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http())
         .with_state(state);

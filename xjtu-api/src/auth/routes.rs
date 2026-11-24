@@ -101,6 +101,35 @@ pub async fn me(
     ))
 }
 
+pub async fn index(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, ApiError> {
+    let token = bearer_token(&headers)?;
+    service::authenticate(&state, token).await?;
+    Ok(response::ok(json!({
+        "message": "从这里，启动你的XJTU人生"
+    })))
+}
+
+pub async fn index_test(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Response {
+    match bearer_token(&headers) {
+        Ok(token) => match service::authenticate(&state, token).await {
+            Ok(_) => response::ok_test(
+                json!({ "message": "从这里，启动你的XJTU人生" }),
+                Value::Null,
+                Value::Null,
+            )
+            .into_response(),
+            Err(error) => error.into_test_response(),
+        },
+        Err(error) => error.into_test_response(),
+    }
+}
+
 fn bearer_token(headers: &HeaderMap) -> Result<&str, ApiError> {
     let value = headers
         .get(axum::http::header::AUTHORIZATION)

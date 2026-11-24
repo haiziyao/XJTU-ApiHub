@@ -215,7 +215,38 @@ curl -sS "$BASE_URL/api/me" \
 }
 ```
 
-## 5. 联调接口
+## 5. 首页信息
+
+登录后请求首页信息，必须带 `accessToken`。
+
+```bash
+curl -sS "$BASE_URL/api/index" \
+  -H "Authorization: Bearer <accessToken>"
+```
+
+```json
+{
+  "code": 200,
+  "data": {
+    "message": "从这里，启动你的XJTU人生"
+  }
+}
+```
+
+未携带或 token 无效时返回 HTTP `401`：
+
+```json
+{ "code": 401, "data": null }
+```
+
+联调接口 `/api-test/index` 与正式接口相同，额外返回 `serve_raw: null`、`serve_data: null`。
+
+```bash
+curl -sS "$BASE_URL/api-test/index" \
+  -H "Authorization: Bearer <accessToken>"
+```
+
+## 6. 联调接口
 
 联调接口与原接口使用相同的请求和业务响应，额外返回服务端调试字段。正式客户端使用 `/api/**`，联调时使用 `/api-test/**`。
 
