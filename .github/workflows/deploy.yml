@@ -1,4 +1,4 @@
-name: Deploy
+name: Deploy Aliyun
 
 on:
   push:
@@ -19,39 +19,38 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: dtolnay/rust-toolchain@stable
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: xjtu-api
-
-      - name: Build release binary
-        run: cargo build --release --manifest-path xjtu-api/Cargo.toml
+      - name: Build static musl binary
+        run: |
+          docker run --rm \
+            -v "$PWD":/app \
+            -w /app \
+            rust:1.88-alpine sh -c "
+              apk add --no-cache build-base perl &&
+              cargo build --release --manifest-path xjtu-api/Cargo.toml
+            "
+          file xjtu-api/target/release/xjtu-api
+          gzip -9 -c xjtu-api/target/release/xjtu-api > /tmp/xjtu-api.gz
+          ls -lh /tmp/xjtu-api.gz
 
       - name: Install deploy key
         run: |
           mkdir -p ~/.ssh
-          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          printf '%s\n' "${{ secrets.ALIYUN_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
-
-      - name: Compress binary
-        run: |
-          gzip -9 -c xjtu-api/target/release/xjtu-api > /tmp/xjtu-api.gz
-          ls -lh /tmp/xjtu-api.gz
+          ssh-keyscan -H "${{ secrets.ALIYUN_HOST }}" >> ~/.ssh/known_hosts
 
       - name: Upload binary
         run: |
           scp -i ~/.ssh/deploy_key -o IdentitiesOnly=yes \
             -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
             /tmp/xjtu-api.gz \
-            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/usr/local/bin/xjtu-api.gz"
+            "${{ secrets.ALIYUN_USER }}@${{ secrets.ALIYUN_HOST }}:/usr/local/bin/xjtu-api.gz"
 
       - name: Restart service and check health
         run: |
           ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes \
             -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
-            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" '
+            "${{ secrets.ALIYUN_USER }}@${{ secrets.ALIYUN_HOST }}" '
               set -e
               gunzip -c /usr/local/bin/xjtu-api.gz > /usr/local/bin/xjtu-api.new
               chmod 755 /usr/local/bin/xjtu-api.new
