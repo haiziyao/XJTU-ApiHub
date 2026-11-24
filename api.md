@@ -20,8 +20,17 @@
 | 接口 | 原接口 | 测试接口 | 上线状态 | 验证状态 | 验证说明 |
 | --- | --- | --- | --- | --- | --- |
 | 注册前查询昵称 | `POST /api/auth/register/lookup` | `POST /api-test/auth/register/lookup` | 阿里云已部署 | 云端已验证 | 按学号查是否已有账号及昵称 |
-| 注册 | `POST /api/auth/register` | `POST /api-test/auth/register` | 阿里云已部署 | 待真实账号重测 | 校方核验后创建账号；昵称不写默认真实姓名；不签发凭证 |
-| 登录 | `POST /api/auth/login` | `POST /api-test/auth/login` | 阿里云已部署 | 待真实账号重测 | 校方核验后签发凭证；账号必须已注册，未注册返回 `404` |
+| 注册 | `POST /api/auth/register` | `POST /api-test/auth/register` | 阿里云已部署 | 真实账号已验证 | 2026-11-24 通过 Launcher 插件真实账号注册成功（`200`）；校方核验后创建账号，昵称不写默认真实姓名，不签发凭证 |
+| 登录 | `POST /api/auth/login` | `POST /api-test/auth/login` | 阿里云已部署 | 待真实账号测试 | 校方核验后签发凭证；账号必须已注册，未注册返回 `404` |
+
+## 云端联调记录
+
+2026-11-24：
+
+- 服务部署到阿里云 `8.152.100.169`，域名 `https://api.xjtu-launcher.cn`，HTTPS 已启用。
+- 注册前查询：`200`，`nickname: null`。
+- 真实账号注册：`200`（Launcher 插件，UA `XJTU-Launcher/0.1`）。
+- 登录：尚未执行，`user_token` 为 0。
 
 ## 原接口与测试接口
 

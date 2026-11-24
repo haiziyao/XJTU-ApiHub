@@ -54,11 +54,13 @@ nginx -t && nginx -s reload
 
 - `api.xjtu-launcher.cn` 的 DNS 已指向阿里云 `8.152.100.169`
 - nginx 已启用 443，并将 HTTP 强制 301 到 HTTPS
-- 证书由 Let's Encrypt 签发，路径：
+- 证书由 Let's Encrypt 签发，当前有效期到 **2027-02-22**，路径：
   - `/www/server/panel/vhost/letsencrypt/api.xjtu-launcher.cn/fullchain.pem`
   - `/www/server/panel/vhost/letsencrypt/api.xjtu-launcher.cn/privkey.pem`
 - ACME HTTP-01 验证目录：`/srv/xjtu-launcher/acme`
-- 证书有效期 90 天；续期在宝塔面板 SSL 页面操作，续期后执行 `nginx -s reload`
+- 续期在宝塔面板 SSL 页面操作，续期后执行 `nginx -s reload`
+- 签发时为了绕过 IPv6 链路问题，在 `/etc/hosts` 固定了 `acme-v02.api.letsencrypt.org` 的 IPv4；续期失败时先检查这条记录
+- 健康检查：`curl -fsS https://api.xjtu-launcher.cn/health`
 
 ## 数据库说明
 
