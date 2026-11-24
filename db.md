@@ -1,123 +1,130 @@
 # XJTU-ApiHub 数据库设计
 
-更新于 2026-11-24。建表语句以 [db-doc/schema.sql](db-doc/schema.sql) 为准，本文说明表之间的关系和字段用途。
+更新于 2026-11-24。当前生产库：阿里云本机 **MySQL 8.0.36**，库 `smart_care`（临时，与 SmartCare 共用）；后续迁移到独立库 `xjtu_apihub`。建表语句见 [db-doc/schema.sql](db-doc/schema.sql)。
 
 ## 设计约定
 
 | 项目 | 约定 |
 | --- | --- |
-| 主键 | `BIGINT GENERATED ALWAYS AS IDENTITY`；`chat_rooms` 使用可读字符串 id |
-| 时间 | `TIMESTAMP WITH TIME ZONE`，默认 `CURRENT_TIMESTAMP` |
-| 用户标识 | `author_id VARCHAR(32)`，对应社区账号 id |
-| 文本长度 | 标题 120，正文 10000，评论和消息 2000 |
-| 外键 | 评论引用帖子，消息引用聊天室；暂不级联删除 |
-| 幂等 | 聊天消息以 `(room_id, author_id, client_message_id)` 唯一 |
+| 账号主键 | 学号 `stu_id`，不加代理 id；帖子、评论、聊天的 `author_id` 直接存学号 |
+| 时间 | `DATETIME(6)`，应用连接统一按 UTC 处理 |
+| 逻辑删除 | `is_deleted`，0 正常，1 删除 |
+| 凭证 | 只存明文 token 的 SHA-256，明文只在登录响应返回一次 |
+| 字符集 | 库 `utf8mb4_general_ci`；学号和 token 字段用 `ascii_general_ci` |
+| 当前库 | `smart_care` 同时被 SmartCare 使用，ApiHub 只新增自己的表 |
 
 ## ER 图
 
 ```mermaid
 erDiagram
+    user ||--o{ user_token : "stu_id"
+    user ||--o{ posts : "author_id"
+    user ||--o{ comments : "author_id"
+    user ||--o{ chat_messages : "author_id"
     posts ||--o{ comments : "post_id"
     chat_rooms ||--o{ chat_messages : "room_id"
-
-    posts {
-        bigint id PK
-        varchar section_id
-        varchar author_id
-        varchar title
-        varchar body
-        timestamptz created_at
-    }
-
-    comments {
-        bigint id PK
-        bigint post_id FK
-        varchar author_id
-        varchar body
-        timestamptz created_at
-    }
-
-    chat_rooms {
-        varchar id PK
-        varchar name
-    }
-
-    chat_messages {
-        bigint id PK
-        varchar room_id FK
-        varchar author_id
-        uuid client_message_id
-        varchar body
-        timestamptz created_at
-    }
 ```
 
-## 表清单
+## 现有表
 
-| 表 | 用途 | 主要索引与约束 |
-| --- | --- | --- |
-| `posts` | 论坛帖子正文 | 主键 `id`；索引 `(section_id, id)` |
-| `comments` | 帖子评论 | 主键 `id`；外键 `post_id`；索引 `(post_id, id)` |
-| `chat_rooms` | 聊天室 | 主键 `id` |
-| `chat_messages` | 聊天室消息 | 主键 `id`；外键 `room_id`；唯一 `(room_id, author_id, client_message_id)`；索引 `(room_id, id)` |
+`user` 和 `user_token` 已在 `smart_care` 创建；其余为下一阶段计划表。
 
-## 表设计
+### user
 
-### posts
-
-论坛帖子。`section_id` 取值为接口层定义的板块 id：`clubs`、`courses`、`life`、`career`、`links`。
+社区账号。`nick_name` 首次注册时确定；不传昵称时使用校方真实姓名。
 
 | 字段 | 类型 | 约束 | 说明 |
 | --- | --- | --- | --- |
-| `id` | `BIGINT` | 主键，自增 | 帖子 id |
-| `section_id` | `VARCHAR(24)` | 非空 | 所属板块 |
-| `author_id` | `VARCHAR(32)` | 非空 | 发帖人账号 id |
-| `title` | `VARCHAR(120)` | 非空 | 标题 |
-| `body` | `VARCHAR(10000)` | 非空 | 正文 |
-| `created_at` | `TIMESTAMPTZ` | 非空，默认当前时间 | 创建时间 |
+| `stu_id` | `VARCHAR(16)` ascii | 主键 | 学号，唯一账号 id |
+| `nick_name` | `VARCHAR(32)` | 非空 | 社区昵称 |
+| `real_name` | `VARCHAR(64)` | 可空 | 校方真实姓名 |
+| `grade_name` | `VARCHAR(64)` | 可空 | 年级/行政班级名称 |
+| `province_code` | `CHAR(2)` ascii | 可空 | 生源省份代码，来自学号 |
+| `gender` | `TINYINT` | 可空 | 1 男，2 女；来源校方 `sex` |
+| `is_deleted` | `TINYINT(1)` | 非空默认 0 | 逻辑删除 |
+| `degree_type` | `TINYINT` | 可空 | 2 本科，3 研究生 |
+| `enrollment_year` | `SMALLINT` | 可空 | 入学年份 |
+| `privacy_agreed_at` | `DATETIME(6)` | 可空 | 同意隐私协议时间 |
+| `last_login_at` | `DATETIME(6)` | 可空 | 最后登录时间 |
+| `created_at` | `DATETIME(6)` | 非空 | 创建时间 |
+| `updated_at` | `DATETIME(6)` | 非空 | 更新时间，自动更新 |
 
-索引 `posts_section_id (section_id, id)` 支持按板块分页和游标查询。
+### user_token
+
+社区登录凭证。一个账号可以有多个 token，对应多台设备。
+
+| 字段 | 类型 | 约束 | 说明 |
+| --- | --- | --- | --- |
+| `token_hash` | `CHAR(64)` ascii | 主键 | 明文 token 的 SHA-256 |
+| `stu_id` | `VARCHAR(16)` ascii | 非空，外键 `user.stu_id` | 所属账号 |
+| `created_at` | `DATETIME(6)` | 非空 | 签发时间 |
+| `expires_at` | `DATETIME(6)` | 非空 | 过期时间，默认 90 天 |
+| `revoked_at` | `DATETIME(6)` | 可空 | 吊销时间 |
+| `last_used_at` | `DATETIME(6)` | 可空 | 最后使用时间 |
+
+## 计划表
+
+以下表尚未创建，字段先按社区功能设计。
+
+### posts
+
+论坛帖子。`section_id` 取值为 `clubs`、`courses`、`life`、`career`、`links`。
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `id` | `BIGINT` 自增主键 | 帖子 id |
+| `section_id` | `VARCHAR(24)` | 板块 |
+| `author_id` | `VARCHAR(16)` ascii | 发帖人学号 |
+| `title` | `VARCHAR(120)` | 标题 |
+| `body` | `TEXT` | 正文 |
+| `is_deleted` | `TINYINT(1)` | 逻辑删除 |
+| `created_at` / `updated_at` | `DATETIME(6)` | 时间 |
+
+索引：`(section_id, id)`、`(author_id)`。
 
 ### comments
 
 帖子评论。
 
-| 字段 | 类型 | 约束 | 说明 |
-| --- | --- | --- | --- |
-| `id` | `BIGINT` | 主键，自增 | 评论 id |
-| `post_id` | `BIGINT` | 非空，外键 `posts(id)` | 所属帖子 |
-| `author_id` | `VARCHAR(32)` | 非空 | 评论人账号 id |
-| `body` | `VARCHAR(2000)` | 非空 | 评论内容 |
-| `created_at` | `TIMESTAMPTZ` | 非空，默认当前时间 | 创建时间 |
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `id` | `BIGINT` 自增主键 | 评论 id |
+| `post_id` | `BIGINT` | 所属帖子 |
+| `author_id` | `VARCHAR(16)` ascii | 评论人学号 |
+| `body` | `VARCHAR(2000)` | 评论内容 |
+| `is_deleted` | `TINYINT(1)` | 逻辑删除 |
+| `created_at` / `updated_at` | `DATETIME(6)` | 时间 |
 
-索引 `comments_post_id (post_id, id)` 支持按帖子分页查询。
+索引：`(post_id, id)`、`(author_id)`。
 
 ### chat_rooms
 
-聊天室。初始化时写入 `general / 校园闲聊`，重复执行不会重复插入。
+聊天室。初始化写入 `general / 校园闲聊`。
 
-| 字段 | 类型 | 约束 | 说明 |
-| --- | --- | --- | --- |
-| `id` | `VARCHAR(24)` | 主键 | 房间标识 |
-| `name` | `VARCHAR(64)` | 非空 | 房间显示名 |
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `id` | `VARCHAR(24)` 主键 | 房间标识 |
+| `name` | `VARCHAR(64)` | 房间显示名 |
+| `created_at` | `DATETIME(6)` | 创建时间 |
 
 ### chat_messages
 
-聊天室消息。客户端提交 `client_message_id` 实现重试幂等：同一房间、同一作者、同一消息 id 重复提交时返回已保存的消息。
+聊天消息。`client_message_id` 用于客户端重试幂等。
 
-| 字段 | 类型 | 约束 | 说明 |
-| --- | --- | --- | --- |
-| `id` | `BIGINT` | 主键，自增 | 消息 id，同时作为轮询游标 |
-| `room_id` | `VARCHAR(24)` | 非空，外键 `chat_rooms(id)` | 所属房间 |
-| `author_id` | `VARCHAR(32)` | 非空 | 发送人账号 id |
-| `client_message_id` | `UUID` | 非空 | 客户端生成的消息 id |
-| `body` | `VARCHAR(2000)` | 非空 | 消息内容 |
-| `created_at` | `TIMESTAMPTZ` | 非空，默认当前时间 | 创建时间 |
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `id` | `BIGINT` 自增主键 | 消息 id，兼轮询游标 |
+| `room_id` | `VARCHAR(24)` | 所属房间 |
+| `author_id` | `VARCHAR(16)` ascii | 发送人学号 |
+| `client_message_id` | `CHAR(36)` ascii | 客户端生成的消息 id |
+| `body` | `VARCHAR(2000)` | 消息内容 |
+| `is_deleted` | `TINYINT(1)` | 逻辑删除 |
+| `created_at` | `DATETIME(6)` | 创建时间 |
 
-唯一约束 `UNIQUE (room_id, author_id, client_message_id)` 保证幂等；索引 `chat_messages_room_id (room_id, id)` 支持按房间增量拉取。
+唯一约束：`(room_id, author_id, client_message_id)`；索引 `(room_id, id)`。
 
-## 待补充
+## 迁移说明
 
-- 登录功能需要的账号表和社区凭证表尚未设计。账号需按学号唯一，凭证只保存哈希，不保存明文。
-- 删除策略尚未定义；目前外键不做级联删除。
-- 数据库产品尚未最终确定，现有 DDL 基于 H2 语法。
+- 当前 `user`、`user_token` 在 `smart_care` 库，和 SmartCare 的 `caregiver_info`、`patient_info` 等表共存。
+- 后续创建独立库 `xjtu_apihub` 时，只迁移 ApiHub 自己的表：`user`、`user_token`，以及后续的帖子、评论、聊天表。
+- 不迁移 SmartCare 的业务表。

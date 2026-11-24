@@ -1,6 +1,6 @@
 # XJTU-ApiHub 接口清单
 
-更新于 2026-11-24。认证接口的正式请求和响应定义见 [OpenAPI 文档](api-doc/openapi/auth.json)，使用案例见 [认证接口使用案例](api-doc/examples/auth.md)，数据库设计见 [db.md](db.md)。
+更新于 2026-11-24。生产域名为 `https://api.xjtu-launcher.cn`（HTTPS 已启用），部署说明见 [deploy.md](deploy.md)。认证接口的正式请求和响应定义见 [OpenAPI 文档](api-doc/openapi/auth.json)，使用案例见 [认证接口使用案例](api-doc/examples/auth.md)，数据库设计见 [db.md](db.md)。
 
 ## 文档结构
 
@@ -12,15 +12,16 @@
 | `api-doc/risks/` | 接口相关的已知风险 |
 | `db.md` | 数据库设计 |
 | `db-doc/schema.sql` | 建表语句 |
+| `deploy.md` | 生产部署、GitHub Actions、域名与证书 |
 | `xjtu-api/` | Rust 服务实现 |
 
 ## 接口状态
 
 | 接口 | 原接口 | 测试接口 | 上线状态 | 验证状态 | 验证说明 |
 | --- | --- | --- | --- | --- | --- |
-| 注册前查询昵称 | `POST /api/auth/register/lookup` | `POST /api-test/auth/register/lookup` | 未上线 | 待验证 | 按学号查是否已有账号及昵称 |
-| 注册 | `POST /api/auth/register` | `POST /api-test/auth/register` | 未上线 | 部分通过 | 校方核验后创建账号；昵称不写默认真实姓名；不签发凭证 |
-| 登录 | `POST /api/auth/login` | `POST /api-test/auth/login` | 未上线 | 部分通过 | 校方核验后签发凭证；账号必须已注册，未注册返回 `404` |
+| 注册前查询昵称 | `POST /api/auth/register/lookup` | `POST /api-test/auth/register/lookup` | 阿里云已部署 | 云端已验证 | 按学号查是否已有账号及昵称 |
+| 注册 | `POST /api/auth/register` | `POST /api-test/auth/register` | 阿里云已部署 | 待真实账号重测 | 校方核验后创建账号；昵称不写默认真实姓名；不签发凭证 |
+| 登录 | `POST /api/auth/login` | `POST /api-test/auth/login` | 阿里云已部署 | 待真实账号重测 | 校方核验后签发凭证；账号必须已注册，未注册返回 `404` |
 
 ## 原接口与测试接口
 

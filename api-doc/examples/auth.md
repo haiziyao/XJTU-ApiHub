@@ -14,8 +14,10 @@
 ## 准备
 
 ```bash
-export BASE_URL=http://127.0.0.1:8080
+export BASE_URL=https://api.xjtu-launcher.cn
 ```
+
+本地调试时可改为 `http://127.0.0.1:8080`；生产请求统一走 HTTPS。
 
 所有请求使用 `Content-Type: application/json`。成功和失败都返回统一信封：
 
