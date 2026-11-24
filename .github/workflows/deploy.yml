@@ -1,0 +1,54 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: xjtu-api
+
+      - name: Build release binary
+        run: cargo build --release --manifest-path xjtu-api/Cargo.toml
+
+      - name: Install deploy key
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Upload binary
+        run: |
+          scp -i ~/.ssh/deploy_key -o IdentitiesOnly=yes \
+            xjtu-api/target/release/xjtu-api \
+            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/usr/local/bin/xjtu-api.new"
+
+      - name: Restart service and check health
+        run: |
+          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes \
+            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" '
+              set -e
+              chmod 755 /usr/local/bin/xjtu-api.new
+              mv /usr/local/bin/xjtu-api.new /usr/local/bin/xjtu-api
+              systemctl restart xjtu-api
+              sleep 1
+              curl -fsS http://127.0.0.1:8080/health
+            '
