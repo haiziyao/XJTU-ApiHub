@@ -15,7 +15,7 @@ permissions:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-22.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -35,19 +35,28 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
 
+      - name: Compress binary
+        run: |
+          gzip -9 -c xjtu-api/target/release/xjtu-api > /tmp/xjtu-api.gz
+          ls -lh /tmp/xjtu-api.gz
+
       - name: Upload binary
         run: |
           scp -i ~/.ssh/deploy_key -o IdentitiesOnly=yes \
-            xjtu-api/target/release/xjtu-api \
-            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/usr/local/bin/xjtu-api.new"
+            -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
+            /tmp/xjtu-api.gz \
+            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/usr/local/bin/xjtu-api.gz"
 
       - name: Restart service and check health
         run: |
           ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes \
+            -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
             "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" '
               set -e
+              gunzip -c /usr/local/bin/xjtu-api.gz > /usr/local/bin/xjtu-api.new
               chmod 755 /usr/local/bin/xjtu-api.new
               mv /usr/local/bin/xjtu-api.new /usr/local/bin/xjtu-api
+              rm -f /usr/local/bin/xjtu-api.gz
               systemctl restart xjtu-api
               sleep 1
               curl -fsS http://127.0.0.1:8080/health
